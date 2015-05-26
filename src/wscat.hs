@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 module Main where
+import Control.Exception
 import Control.Concurrent
 import Control.Monad
 import Data.Char
@@ -9,9 +10,13 @@ import qualified Network.WebSockets as WS
 
 lGetLine = fmap (L.pack . map (fromIntegral . ord)) getLine
 
+-- Gracefully close the connection and mask the default printout
+exnHandler :: WS.Connection -> SomeException -> IO ()
+exnHandler conn _ = WS.sendClose conn L.empty
+
 server = WS.acceptRequest >=> client
 
-client conn = do
+client conn = (handle $ exnHandler conn) $ do
     forkIO . forever $ lGetLine >>= WS.sendBinaryData conn
     forever $ WS.receiveData conn >>= L.putStr
 
